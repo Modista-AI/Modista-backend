@@ -33,6 +33,9 @@ import express from "express";
 import mongoose from "mongoose";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+
 
 const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Replace with your actual MongoDB URI
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -67,6 +70,20 @@ const chat = new ChatOpenAI({
   maxTokens: 1024,
   openAIApiKey: "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",
 });
+
+//CHAT MODEL FOR RECOMMENDATION
+const chatModel = new ChatOpenAI({
+  openAIApiKey: "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",
+});
+
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "You are an AI fashion expert trained to analyze and recommend clothing choices based on a user's closet and their specific needs or scenarios. You understand fashion trends, styles, materials, and appropriate attire for various settings and occasions. Your task is to suggest the best outfit options considering the user's available clothing and the context or event they describe."],
+  ["user", "{input}"],
+]);
+
+
+const outputParser = new StringOutputParser();
+const llmChain = prompt.pipe(chatModel).pipe(outputParser);
 
 app.use(express.json());
 
@@ -163,6 +180,41 @@ app.get('/user-closet', async (req, res) => {
   } catch (error) {
     console.error("Error retrieving user closet:", error);
     res.status(500).send({ error: "Error retrieving user closet" });
+  }
+});
+
+
+// Recommend what to wear based on the user's closet and their input description
+app.post('/recommend-clothing', async (req, res) => {
+  const { userEmail, description } = req.body;
+  if (!userEmail || !description) {
+      return res.status(400).send({ error: "Both userEmail and description are required" });
+  }
+
+  try {
+      // Retrieve user and their closet
+      const userWithCloset = await User.findOne({ email: userEmail }).populate('closet');
+      if (!userWithCloset) {
+          return res.status(404).send({ error: "User not found" });
+      }
+
+      // Prepare the input for the AI based on the user's closet and the description provided
+      let closetDescription = userWithCloset.closet.map(item => {
+          return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures}.`;
+      }).join(" ");
+
+      const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
+      
+
+      const response = await llmChain.invoke({
+        input: prompt,
+      });
+
+      // Send back the recommendation
+      res.send({ recommendation: response});
+  } catch (error) {
+      console.error("Error generating recommendation:", error);
+      res.status(500).send({ error: "Error generating recommendation" });
   }
 });
 
