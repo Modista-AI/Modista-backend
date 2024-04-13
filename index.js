@@ -204,8 +204,9 @@ app.post('/recommend-clothing', async (req, res) => {
           return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures}.`;
       }).join(" ");
 
-      const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
-      
+      // const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
+      const prompt = `Given a closet containing the following items:\n${closetDescription}\nBased on the user's description of their plans: "${description}", please recommend the most appropriate attire. List the recommended clothing items with brief descriptions and include their image URLs from the users closet of the specific cloths you recommend. Keep the response concise for display in a user interface.`;
+
 
       const response = await llmChain.invoke({
         input: prompt,
