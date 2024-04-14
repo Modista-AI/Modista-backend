@@ -35,7 +35,13 @@ import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
-
+import multer from "multer";
+import axios from "axios";
+import FormData from "form-data";
+import fs from "fs";
+import { promisify } from "util";
+import { pipeline } from "stream";
+const streamPipeline = promisify(pipeline);
 
 const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Replace with your actual MongoDB URI
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -87,6 +93,13 @@ const outputParser = new StringOutputParser();
 const llmChain = prompt.pipe(chatModel).pipe(outputParser);
 
 app.use(express.json());
+
+
+// Multer setup for handling file uploads
+const upload = multer({ dest: 'uploads/' });
+
+// Replace 'PASTE_YOUR_PINATA_JWT' with your actual Pinata JWT
+const JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI0ZWU5OTc2My03MzVlLTQxNWMtODBiMC05OTQ2NDdkYzM3NjIiLCJlbWFpbCI6ImFnYXRlbmFzaG9uc0BnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGluX3BvbGljeSI6eyJyZWdpb25zIjpbeyJpZCI6IkZSQTEiLCJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MX0seyJpZCI6Ik5ZQzEiLCJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MX1dLCJ2ZXJzaW9uIjoxfSwibWZhX2VuYWJsZWQiOmZhbHNlLCJzdGF0dXMiOiJBQ1RJVkUifSwiYXV0aGVudGljYXRpb25UeXBlIjoic2NvcGVkS2V5Iiwic2NvcGVkS2V5S2V5IjoiOWMzMDRkMzMwYzBlNWEzOWYyYzgiLCJzY29wZWRLZXlTZWNyZXQiOiJhZDMyNDczNTRhOTJhYjk4YmRkNWI3NWIyMTBjZjIzNTkzOWRhZWNlZDFlYmIxZGY1NjlmNmNlYzI0N2ViMjAzIiwiaWF0IjoxNzEzMTI0OTgyfQ.59fU0KrLvMhdbE196_gMYvyoq9joHwmzhJ1rklNQ2A8";
 
 app.post('/analyze-clothing', async (req, res) => {
   const { imageUrl, userEmail } = req.body;
@@ -217,6 +230,50 @@ app.post('/recommend-clothing', async (req, res) => {
   } catch (error) {
       console.error("Error generating recommendation:", error);
       res.status(500).send({ error: "Error generating recommendation" });
+  }
+});
+
+
+// POST endpoint for uploading clothing images
+app.post('/upload-clothing-image', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+      return res.status(400).send("No file uploaded.");
+  }
+
+  try {
+      const formData = new FormData();
+      const readStream = fs.createReadStream(req.file.path);
+      formData.append("file", readStream);
+
+      const pinataMetadata = JSON.stringify({
+          name: req.file.originalname
+      });
+      formData.append("pinataMetadata", pinataMetadata);
+
+      const pinataOptions = JSON.stringify({
+          cidVersion: 1
+      });
+      formData.append("pinataOptions", pinataOptions);
+
+      const response = await axios.post(
+          "https://api.pinata.cloud/pinning/pinFileToIPFS",
+          formData,
+          { headers: {
+              ...formData.getHeaders(),
+              Authorization: `Bearer ${JWT}`
+          }}
+      );
+
+      // Clean up the uploaded file from local storage
+      fs.unlinkSync(req.file.path);
+
+      res.send({
+          message: "File uploaded successfully to IPFS.",
+          ipfsUrl: `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`
+      });
+  } catch (error) {
+      console.error("Failed to upload image to IPFS:", error);
+      res.status(500).send("Failed to upload image to IPFS.");
   }
 });
 
