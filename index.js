@@ -277,6 +277,79 @@ app.post('/upload-clothing-image', upload.single('file'), async (req, res) => {
   }
 });
 
+app.post('/upload-and-analyze-clothing', upload.single('file'), async (req, res) => {
+  const userEmail = req.body.userEmail; // Ensure userEmail is passed in the form-data
+  if (!req.file || !userEmail) {
+      return res.status(400).send({ error: "File and userEmail are required" });
+  }
+
+  try {
+      // Upload to IPFS
+      const formData = new FormData();
+      const readStream = fs.createReadStream(req.file.path);
+      formData.append("file", readStream);
+      const pinataMetadata = JSON.stringify({ name: req.file.originalname });
+      formData.append("pinataMetadata", pinataMetadata);
+      const pinataOptions = JSON.stringify({ cidVersion: 1 });
+      formData.append("pinataOptions", pinataOptions);
+      const pinResponse = await axios.post(
+          "https://api.pinata.cloud/pinning/pinFileToIPFS",
+          formData,
+          { headers: {
+              ...formData.getHeaders(),
+              Authorization: `Bearer ${JWT}`
+          }}
+      );
+      fs.unlinkSync(req.file.path); // Clean up the uploaded file from local storage
+
+      // Analyze the clothing using the AI model
+      const imageUrl = `https://gateway.pinata.cloud/ipfs/${pinResponse.data.IpfsHash}`;
+      const hostedImageMessage = new HumanMessage({
+          content: [{
+              type: "text",
+              text: "You are an AI fashion designer with expertise in analyzing fashion items. Your role is to examine uploaded images of clothing and catalog them according to specific attributes. For each item, provide a detailed description in the following standardized format:\n\n- **Style:** Describe the general style of the clothing (e.g., casual, formal, sporty).\n- **Color:** Specify the primary and any notable secondary colors.\n- **Material:** Identify the material(s) the clothing is made from.\n- **Occasions:** Suggest suitable occasions for wearing the item (e.g., everyday wear, formal events, outdoor activities).\n- **Unique Features:** Note any unique features or patterns (e.g., embroidery, prints, cuts).\n- **Recommended Combinations:** Suggest other types of clothing or accessories that would pair well with this item.",
+            }, {
+              type: "image_url",
+              image_url: imageUrl,
+          }],
+      });
+      const response = await chat.invoke([hostedImageMessage]);
+      const contentString = response.content;
+
+      // Extract clothing attributes from AI response
+      const extractInfo = (field, content) => {
+          const regex = new RegExp(`- \\*\\*${field}:\\*\\* ([^\\n]+)`);
+          const match = content.match(regex);
+          return match ? match[1] : '';
+      };
+
+      // Store clothing information in MongoDB
+      let user = await User.findOne({ email: userEmail });
+      if (!user) {
+          user = new User({ email: userEmail });
+          await user.save();
+      }
+      const clothing = new Clothing({
+          user: user._id,
+          style: extractInfo("Style", contentString),
+          color: extractInfo("Color", contentString),
+          material: extractInfo("Material", contentString),
+          occasions: extractInfo("Occasions", contentString),
+          uniqueFeatures: extractInfo("Unique Features", contentString),
+          recommendedCombinations: extractInfo("Recommended Combinations", contentString),
+          imageUrl
+      });
+      await clothing.save();
+      user.closet.push(clothing._id);
+      await user.save();
+
+      res.send({ message: "Clothing uploaded, analyzed, and saved successfully.", clothingDetails: clothing });
+  } catch (error) {
+      console.error("Failed processing request:", error);
+      res.status(500).send("Error processing request.");
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Fashion analysis API listening at http://localhost:${port}`);
