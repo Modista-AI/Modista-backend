@@ -40,7 +40,9 @@ import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
 import { promisify } from "util";
-import { pipeline } from "stream";
+import { pipeline } from "stream";2
+import cors from "cors";
+
 const streamPipeline = promisify(pipeline);
 
 const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Replace with your actual MongoDB URI
@@ -70,6 +72,12 @@ const User = mongoose.model('User', userSchema);
 
 const app = express();
 const port = 3000;
+
+
+app.use(cors({
+  origin: 'http://localhost:3001',  // Allow only your Next.js origin; adjust as necessary
+  methods: ['GET', 'POST', 'DELETE', 'UPDATE', 'PUT', 'PATCH']
+}));
 
 const chat = new ChatOpenAI({
   modelName: "gpt-4-vision-preview",
@@ -101,77 +109,6 @@ const upload = multer({ dest: 'uploads/' });
 // Replace 'PASTE_YOUR_PINATA_JWT' with your actual Pinata JWT
 const JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI0ZWU5OTc2My03MzVlLTQxNWMtODBiMC05OTQ2NDdkYzM3NjIiLCJlbWFpbCI6ImFnYXRlbmFzaG9uc0BnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGluX3BvbGljeSI6eyJyZWdpb25zIjpbeyJpZCI6IkZSQTEiLCJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MX0seyJpZCI6Ik5ZQzEiLCJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MX1dLCJ2ZXJzaW9uIjoxfSwibWZhX2VuYWJsZWQiOmZhbHNlLCJzdGF0dXMiOiJBQ1RJVkUifSwiYXV0aGVudGljYXRpb25UeXBlIjoic2NvcGVkS2V5Iiwic2NvcGVkS2V5S2V5IjoiOWMzMDRkMzMwYzBlNWEzOWYyYzgiLCJzY29wZWRLZXlTZWNyZXQiOiJhZDMyNDczNTRhOTJhYjk4YmRkNWI3NWIyMTBjZjIzNTkzOWRhZWNlZDFlYmIxZGY1NjlmNmNlYzI0N2ViMjAzIiwiaWF0IjoxNzEzMTI0OTgyfQ.59fU0KrLvMhdbE196_gMYvyoq9joHwmzhJ1rklNQ2A8";
 
-app.post('/analyze-clothing', async (req, res) => {
-  const { imageUrl, userEmail } = req.body;
-  if (!imageUrl || !userEmail) {
-    return res.status(400).send({ error: "imageUrl and userEmail are required" });
-  }
-
-
-    const hostedImageMessage = new HumanMessage({
-    content: [
-      {
-        type: "text",
-  text: "You are an AI fashion designer with expertise in analyzing fashion items. Your role is to examine uploaded images of clothing and catalog them according to specific attributes. For each item, provide a detailed description in the following standardized format:\n\n- **Style:** Describe the general style of the clothing (e.g., casual, formal, sporty).\n- **Color:** Specify the primary and any notable secondary colors.\n- **Material:** Identify the material(s) the clothing is made from.\n- **Occasions:** Suggest suitable occasions for wearing the item (e.g., everyday wear, formal events, outdoor activities).\n- **Unique Features:** Note any unique features or patterns (e.g., embroidery, prints, cuts).\n- **Recommended Combinations:** Suggest other types of clothing or accessories that would pair well with this item.",
-},
-      {
-        type: "image_url",
-        image_url: imageUrl,
-      },
-    ],
-  });
-
-  try {
-    const response = await chat.invoke([hostedImageMessage]);
-    const contentString = response.content;
-
-    // extraction logic
-        console.log(contentString);
-  
-    // Proceed with extracting the information from 'contentString' as before
-    const extractInfo = (field, content) => {
-      const regex = new RegExp(`- \\*\\*${field}:\\*\\* ([^\\n]+)`);
-      const match = content.match(regex);
-      return match ? match[1] : '';
-    };
-  
-    const style = extractInfo("Style", contentString);
-    const color = extractInfo("Color", contentString);
-    const material = extractInfo("Material", contentString);
-    const occasions = extractInfo("Occasions", contentString);
-    const uniqueFeatures = extractInfo("Unique Features", contentString);
-    const recommendedCombinations = extractInfo("Recommended Combinations", contentString);
-  
-    
-    let user = await User.findOne({ email: userEmail });
-    if (!user) {
-      user = new User({ email: userEmail });
-      await user.save();
-    }
-
-    const clothing = new Clothing({
-      user: user._id, // Linking clothing to the user
-      // Other clothing fields
-      style,
-      color,
-      material,
-      occasions,
-      uniqueFeatures,
-      recommendedCombinations,
-      imageUrl // Assuming you still want to save the image URL
-    });
-    await clothing.save();
-    
-    // Adding clothing to user's closet
-    user.closet.push(clothing._id);
-    await user.save();
-
-    res.send({ message: "Analysis saved successfully", data: clothing });
-  } catch (error) {
-    console.error("Error processing image analysis:", error);
-    res.status(500).send({ error: "Error processing image analysis" });
-  }
-});
 
 
 // Retrieve a user's closet
@@ -234,48 +171,7 @@ app.post('/recommend-clothing', async (req, res) => {
 });
 
 
-// POST endpoint for uploading clothing images
-app.post('/upload-clothing-image', upload.single('file'), async (req, res) => {
-  if (!req.file) {
-      return res.status(400).send("No file uploaded.");
-  }
 
-  try {
-      const formData = new FormData();
-      const readStream = fs.createReadStream(req.file.path);
-      formData.append("file", readStream);
-
-      const pinataMetadata = JSON.stringify({
-          name: req.file.originalname
-      });
-      formData.append("pinataMetadata", pinataMetadata);
-
-      const pinataOptions = JSON.stringify({
-          cidVersion: 1
-      });
-      formData.append("pinataOptions", pinataOptions);
-
-      const response = await axios.post(
-          "https://api.pinata.cloud/pinning/pinFileToIPFS",
-          formData,
-          { headers: {
-              ...formData.getHeaders(),
-              Authorization: `Bearer ${JWT}`
-          }}
-      );
-
-      // Clean up the uploaded file from local storage
-      fs.unlinkSync(req.file.path);
-
-      res.send({
-          message: "File uploaded successfully to IPFS.",
-          ipfsUrl: `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`
-      });
-  } catch (error) {
-      console.error("Failed to upload image to IPFS:", error);
-      res.status(500).send("Failed to upload image to IPFS.");
-  }
-});
 
 app.post('/upload-and-analyze-clothing', upload.single('file'), async (req, res) => {
   const userEmail = req.body.userEmail; // Ensure userEmail is passed in the form-data
@@ -349,7 +245,7 @@ app.post('/upload-and-analyze-clothing', upload.single('file'), async (req, res)
       res.status(500).send("Error processing request.");
   }
 });
-
+ 
 
 app.listen(port, () => {
   console.log(`Fashion analysis API listening at http://localhost:${port}`);
