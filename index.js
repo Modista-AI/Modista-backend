@@ -246,6 +246,26 @@ app.post('/upload-and-analyze-clothing', upload.single('file'), async (req, res)
   }
 });
  
+// Retrieve a specific clothing item by ID
+app.get('/clothing/:id', async (req, res) => {
+  const { id } = req.params; // Extract the ID from the route parameter
+
+  if (!id) {
+    return res.status(400).send({ error: "Clothing ID is required" });
+  }
+
+  try {
+    const clothingItem = await Clothing.findById(id); // Query the database for the clothing item
+    // console.log(clothingItem)
+    if (!clothingItem) {
+      return res.status(404).send({ error: "Clothing item not found" });
+    }
+    res.send({ message: "Clothing item retrieved successfully", clothingItem });
+  } catch (error) {
+    console.error("Error retrieving clothing item:", error);
+    res.status(500).send({ error: "Error retrieving clothing item" });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Fashion analysis API listening at http://localhost:${port}`);
