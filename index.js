@@ -42,8 +42,10 @@ import fs from "fs";
 import { promisify } from "util";
 import { pipeline } from "stream";2
 import cors from "cors";
-
 const streamPipeline = promisify(pipeline);
+
+
+
 
 const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Replace with your actual MongoDB URI
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -72,6 +74,7 @@ const User = mongoose.model('User', userSchema);
 
 const app = express();
 const port = 3000;
+
 
 
 app.use(cors({
@@ -144,6 +147,7 @@ app.post('/recommend-clothing', async (req, res) => {
 
   try {
       // Retrieve user and their closet
+      console.log("hit")
       const userWithCloset = await User.findOne({ email: userEmail }).populate('closet');
       if (!userWithCloset) {
           return res.status(404).send({ error: "User not found" });
@@ -151,11 +155,11 @@ app.post('/recommend-clothing', async (req, res) => {
 
       // Prepare the input for the AI based on the user's closet and the description provided
       let closetDescription = userWithCloset.closet.map(item => {
-          return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures}.`;
+          return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`;
       }).join(" ");
 
       // const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
-      const prompt = `Given a closet containing the following items:\n${closetDescription}\nBased on the user's description of their plans: "${description}", please recommend the most appropriate attire. List the recommended clothing items with brief descriptions and include their image URLs from the users closet of the specific cloths you recommend. Keep the response concise for display in a user interface.`;
+      const prompt = `Given a closet containing the following items:\n${closetDescription}\nBased on the user's description of their plans: "${description}", please recommend the most appropriate attire. List the recommended clothing items with brief descriptions and include their image URLs as retrieved from the database from the users closet of the specific cloths you recommend. Keep the response concise for display in a user interface. Let the response be in JSON format`;
 
 
       const response = await llmChain.invoke({
