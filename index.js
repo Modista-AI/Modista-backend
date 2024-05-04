@@ -40,12 +40,13 @@ import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
 import { promisify } from "util";
-import { pipeline } from "stream";2
+import { pipeline } from "stream";
 import cors from "cors";
-const streamPipeline = promisify(pipeline);
+import fetch from "node-fetch";
+import jwt from "jsonwebtoken";
+import * as dotenv from "dotenv";
 
-
-
+dotenv.config();
 
 const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Replace with your actual MongoDB URI
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -74,6 +75,32 @@ const User = mongoose.model('User', userSchema);
 
 const app = express();
 const port = 3000;
+
+
+
+app.use(express.json());
+
+
+const GOOGLE_OAUTH_URL = process.env.GOOGLE_OAUTH_URL;
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+
+const GOOGLE_CALLBACK_URL = "http%3A//localhost:3000/google/callback";
+
+const GOOGLE_OAUTH_SCOPES = [
+
+"https%3A//www.googleapis.com/auth/userinfo.email",
+
+"https%3A//www.googleapis.com/auth/userinfo.profile",
+
+];
+
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+const GOOGLE_ACCESS_TOKEN_URL = process.env.GOOGLE_ACCESS_TOKEN_URL;
+
+const mongoDBURI = process.env.MONGO_DB_URI;
+
 
 
 
@@ -113,6 +140,99 @@ const upload = multer({ dest: 'uploads/' });
 const JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI0ZWU5OTc2My03MzVlLTQxNWMtODBiMC05OTQ2NDdkYzM3NjIiLCJlbWFpbCI6ImFnYXRlbmFzaG9uc0BnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwicGluX3BvbGljeSI6eyJyZWdpb25zIjpbeyJpZCI6IkZSQTEiLCJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MX0seyJpZCI6Ik5ZQzEiLCJkZXNpcmVkUmVwbGljYXRpb25Db3VudCI6MX1dLCJ2ZXJzaW9uIjoxfSwibWZhX2VuYWJsZWQiOmZhbHNlLCJzdGF0dXMiOiJBQ1RJVkUifSwiYXV0aGVudGljYXRpb25UeXBlIjoic2NvcGVkS2V5Iiwic2NvcGVkS2V5S2V5IjoiOWMzMDRkMzMwYzBlNWEzOWYyYzgiLCJzY29wZWRLZXlTZWNyZXQiOiJhZDMyNDczNTRhOTJhYjk4YmRkNWI3NWIyMTBjZjIzNTkzOWRhZWNlZDFlYmIxZGY1NjlmNmNlYzI0N2ViMjAzIiwiaWF0IjoxNzEzMTI0OTgyfQ.59fU0KrLvMhdbE196_gMYvyoq9joHwmzhJ1rklNQ2A8";
 
 
+ 
+const UserSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    unique: false,
+    trim: true,
+    required: [true, "Please provide a  name"],
+    minlength: 3,
+    maxlength: 56,
+  },
+  email: {
+    type: String,
+    match: [
+      /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
+      "Please provide a valid email.",
+    ],
+    unique: true,
+  },
+  password: {
+    type: String,
+    minlength: 6,
+    required: false,
+  },
+});
+
+UserSchema.methods.generateToken = function () {
+  const token = jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_LIFETIME,
+  });
+  return token;
+};
+
+const UserA = mongoose.model("UserA", UserSchema);
+app.get("/auth", async (req, res) => {
+    const state = "some_state";
+    const scopes = GOOGLE_OAUTH_SCOPES.join(" ");
+    const GOOGLE_OAUTH_CONSENT_SCREEN_URL = `${GOOGLE_OAUTH_URL}?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_CALLBACK_URL}&access_type=offline&response_type=code&state=${state}&scope=${scopes}`;
+    res.redirect(GOOGLE_OAUTH_CONSENT_SCREEN_URL);
+  });
+
+  
+
+app.get("/google/callback", async (req, res) => {
+    const { code } = req.query;
+  
+    // Prepare the data for access token request
+    const data = {
+      code,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: "http://localhost:3000/google/callback",
+      grant_type: "authorization_code",
+    };
+  
+    // Request to exchange code for the token
+    const response = await fetch(GOOGLE_ACCESS_TOKEN_URL, {
+      method: "POST",
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data),
+    });
+  
+    const access_token_data = await response.json();
+    const { id_token } = access_token_data;
+  
+    // Decode ID token to get user info
+    const token_info_response = await fetch(`${process.env.GOOGLE_TOKEN_INFO_URL}?id_token=${id_token}`);
+    const token_info_data = await token_info_response.json();
+  
+    const { email, name } = token_info_data;
+  
+    try {
+      let user = await UserA.findOne({ email });
+  
+      if (!user) {
+        // Create new user if not found
+        user = new UserA({ email, name });
+        await user.save();
+      } else {
+        // Update existing user details
+        user.name = name; // Update other fields as necessary
+        await user.save();
+      }
+  
+      // Generate JWT token
+      const token = user.generateToken();
+  
+      // Respond with user info and token
+      res.status(200).json({ user, token });
+    } catch (error) {
+      console.error('Database operation failed:', error);
+      res.status(500).send('Error processing request');
+    }
+  });
 
 // Retrieve a user's closet
 app.get('/user-closet', async (req, res) => {
@@ -270,6 +390,8 @@ app.get('/clothing/:id', async (req, res) => {
     res.status(500).send({ error: "Error retrieving clothing item" });
   }
 });
+
+
 
 app.listen(port, () => {
   console.log(`Fashion analysis API listening at http://localhost:${port}`);
