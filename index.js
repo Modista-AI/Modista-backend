@@ -336,7 +336,7 @@ app.get("/google/callback", async (req, res) => {
     const token = user.generateToken();
 
     // Redirect to the frontend home page with user info and token
-    const frontendRedirectURL = `http://localhost:3001/steppingstone?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+    const frontendRedirectURL = `http://localhost:3001/steppingstone?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
     res.redirect(frontendRedirectURL);
 
   } catch (error) {
