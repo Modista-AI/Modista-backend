@@ -101,7 +101,7 @@ const GOOGLE_ACCESS_TOKEN_URL = process.env.GOOGLE_ACCESS_TOKEN_URL;
 
 const mongoDBURI = process.env.MONGO_DB_URI;
 
-
+const loginURL = 'http://localhost:3001/login'
 
 
 app.use(cors({
@@ -182,57 +182,169 @@ app.get("/auth", async (req, res) => {
 
   
 
+// app.get("/google/callback", async (req, res) => {
+//     const { code } = req.query;
+  
+//     // Prepare the data for access token request
+//     const data = {
+//       code,
+//       client_id: GOOGLE_CLIENT_ID,
+//       client_secret: GOOGLE_CLIENT_SECRET,
+//       redirect_uri: "http://localhost:3000/google/callback",
+//       grant_type: "authorization_code",
+//     };
+  
+//     // Request to exchange code for the token
+//     const response = await fetch(GOOGLE_ACCESS_TOKEN_URL, {
+//       method: "POST",
+//       headers: {'Content-Type': 'application/json'},
+//       body: JSON.stringify(data),
+//     });
+  
+//     const access_token_data = await response.json();
+//     const { id_token } = access_token_data;
+  
+//     // Decode ID token to get user info
+//     const token_info_response = await fetch(`${process.env.GOOGLE_TOKEN_INFO_URL}?id_token=${id_token}`);
+//     const token_info_data = await token_info_response.json();
+  
+//     const { email, name } = token_info_data;
+  
+//     try {
+//       let user = await UserA.findOne({ email });
+  
+//       if (!user) {
+//         // Create new user if not found
+//         user = new UserA({ email, name });
+//         await user.save();
+//       } else {
+//         // Update existing user details
+//         user.name = name; // Update other fields as necessary
+//         await user.save();
+//       }
+  
+//       // Generate JWT token
+//       const token = user.generateToken();
+  
+//       // Respond with user info and token
+//       res.status(200).json({ user, token });
+
+//     } catch (error) {
+//       console.error('Database operation failed:', error);
+//       res.status(500).send('Error processing request');
+//     }
+//   });
+
+// app.get("/google/callback", async (req, res) => {
+//   const { code } = req.query;
+
+//   // Prepare the data for access token request
+//   const data = {
+//       code,
+//       client_id: GOOGLE_CLIENT_ID,
+//       client_secret: GOOGLE_CLIENT_SECRET,
+//       redirect_uri: "http://localhost:3000/google/callback", // Ensure this matches your OAuth redirect URI
+//       grant_type: "authorization_code",
+//   };
+
+//   // Request to exchange code for the token
+//   const response = await fetch(GOOGLE_ACCESS_TOKEN_URL, {
+//       method: "POST",
+//       headers: {'Content-Type': 'application/json'},
+//       body: JSON.stringify(data),
+//   });
+
+//   const access_token_data = await response.json();
+//   const { id_token } = access_token_data;
+
+//   // Decode ID token to get user info
+//   const token_info_response = await fetch(`${process.env.GOOGLE_TOKEN_INFO_URL}?id_token=${id_token}`);
+//   const token_info_data = await token_info_response.json();
+
+//   const { email, name } = token_info_data;
+
+//   try {
+//       let user = await UserA.findOne({ email });
+
+//       if (!user) {
+//           // Create new user if not found
+//           user = new UserA({ email, name });
+//           await user.save();
+//       } else {
+//           // Update existing user details
+//           user.name = name; // Update other fields as necessary
+//           await user.save();
+//       }
+
+//       // Generate JWT token
+//       const token = user.generateToken();
+
+//       // Redirect to frontend with user info and token
+//       const frontendRedirectURL = `http://localhost:3001/dashboard?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+//       res.redirect(frontendRedirectURL);
+
+//   } catch (error) {
+//       console.error('Database operation failed:', error);
+//       res.status(500).send('Error processing request');
+//   }
+// });
+
+
+
 app.get("/google/callback", async (req, res) => {
-    const { code } = req.query;
-  
-    // Prepare the data for access token request
-    const data = {
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: "http://localhost:3000/google/callback",
-      grant_type: "authorization_code",
-    };
-  
-    // Request to exchange code for the token
-    const response = await fetch(GOOGLE_ACCESS_TOKEN_URL, {
-      method: "POST",
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data),
-    });
-  
-    const access_token_data = await response.json();
-    const { id_token } = access_token_data;
-  
-    // Decode ID token to get user info
-    const token_info_response = await fetch(`${process.env.GOOGLE_TOKEN_INFO_URL}?id_token=${id_token}`);
-    const token_info_data = await token_info_response.json();
-  
-    const { email, name } = token_info_data;
-  
-    try {
-      let user = await UserA.findOne({ email });
-  
-      if (!user) {
-        // Create new user if not found
-        user = new UserA({ email, name });
-        await user.save();
-      } else {
-        // Update existing user details
-        user.name = name; // Update other fields as necessary
-        await user.save();
-      }
-  
-      // Generate JWT token
-      const token = user.generateToken();
-  
-      // Respond with user info and token
-      res.status(200).json({ user, token });
-    } catch (error) {
-      console.error('Database operation failed:', error);
-      res.status(500).send('Error processing request');
-    }
+  const { code } = req.query;
+
+  // Prepare the data for access token request
+  const data = {
+    code,
+    client_id: GOOGLE_CLIENT_ID,
+    client_secret: GOOGLE_CLIENT_SECRET,
+    redirect_uri: "http://localhost:3000/google/callback", // Ensure this matches your OAuth redirect URI
+    grant_type: "authorization_code",
+  };
+
+  // Request to exchange code for the token
+  const response = await fetch(GOOGLE_ACCESS_TOKEN_URL, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
   });
+
+  const access_token_data = await response.json();
+  const { id_token } = access_token_data;
+
+  // Decode ID token to get user info
+  const token_info_response = await fetch(`${process.env.GOOGLE_TOKEN_INFO_URL}?id_token=${id_token}`);
+  const token_info_data = await token_info_response.json();
+
+  const { email, name } = token_info_data;
+
+  try {
+    let user = await UserA.findOne({ email });
+
+    if (!user) {
+      // Create new user if not found
+      user = new UserA({ email, name });
+      await user.save();
+    } else {
+      // Update existing user details
+      user.name = name; // Update other fields as necessary
+      await user.save();
+    }
+
+    // Generate JWT token
+    const token = user.generateToken();
+
+    // Redirect to the frontend home page with user info and token
+    const frontendRedirectURL = `http://localhost:3001/steppingstone?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+    res.redirect(frontendRedirectURL);
+
+  } catch (error) {
+    console.error('Database operation failed:', error);
+    res.status(500).send('Error processing request');
+  }
+});
+
 
 // Retrieve a user's closet
 app.get('/user-closet', async (req, res) => {
