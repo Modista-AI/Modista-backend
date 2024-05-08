@@ -94,7 +94,8 @@ const GOOGLE_OAUTH_URL = process.env.GOOGLE_OAUTH_URL;
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
-const GOOGLE_CALLBACK_URL = "http%3A//localhost:3000/google/callback";
+// const GOOGLE_CALLBACK_URL = "http%3A//localhost:3000/google/callback";
+const GOOGLE_CALLBACK_URL = "https%3A//modista-backend.vercel.app/google/callback";
 
 const GOOGLE_OAUTH_SCOPES = [
 
@@ -110,13 +111,36 @@ const GOOGLE_ACCESS_TOKEN_URL = process.env.GOOGLE_ACCESS_TOKEN_URL;
 
 const mongoDBURI = process.env.MONGO_DB_URI;
 
-const loginURL = 'http://localhost:3001/login'
+// const loginURL = 'http://localhost:3001/login'
+const loginURL = 'https://modista-backend.vercel.app/login'
 
+
+// app.use(cors({
+//   origin: 'http://localhost:3001',  // Allow only your Next.js origin; adjust as necessary
+//   methods: ['GET', 'POST', 'DELETE', 'UPDATE', 'PUT', 'PATCH']
+// }));
+
+const allowedOrigins = [
+  'http://localhost:3001',
+  'https://modista-app.vercel.app'
+];
 
 app.use(cors({
-  origin: 'http://localhost:3001',  // Allow only your Next.js origin; adjust as necessary
+  origin: (origin, callback) => {
+    // Allow requests with no `origin` (like mobile apps or CURL calls)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      // If the origin is in the allowedOrigins array, allow it
+      callback(null, true);
+    } else {
+      // Otherwise, block the request with an error message
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'DELETE', 'UPDATE', 'PUT', 'PATCH']
 }));
+
 
 const chat = new ChatOpenAI({
   modelName: "gpt-4-vision-preview",
@@ -214,7 +238,7 @@ app.get("/google/callback", async (req, res) => {
     code,
     client_id: GOOGLE_CLIENT_ID,
     client_secret: GOOGLE_CLIENT_SECRET,
-    redirect_uri: "http://localhost:3000/google/callback", // Ensure this matches your OAuth redirect URI
+    redirect_uri: "https://modista-backend.vercel.app/google/callback", // Ensure this matches your OAuth redirect URI
     grant_type: "authorization_code",
   };
 
@@ -251,7 +275,7 @@ app.get("/google/callback", async (req, res) => {
     const token = user.generateToken();
 
     // Redirect to the frontend home page with user info and token
-    const frontendRedirectURL = `http://localhost:3001/steppingstone?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
+    const frontendRedirectURL = `https://modista-app.vercel.app/steppingstone?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
     res.redirect(frontendRedirectURL);
 
   } catch (error) {
