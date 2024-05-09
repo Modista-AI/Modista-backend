@@ -150,7 +150,7 @@ const prompt = ChatPromptTemplate.fromMessages([
 
 
 const outputParser = new StringOutputParser();
-const llmChain = prompt.pipe(chatModel).pipe(outputParser);
+const llmChain =  prompt.pipe(chatModel).pipe(outputParser);
 
 app.use(express.json());
 
@@ -509,6 +509,35 @@ app.get('/clothing/:id', async (req, res) => {
 
 
 
-app.listen(port, () => {
-  console.log(`Fashion analysis API listening at http://localhost:${port}`);
-});
+// app.listen(port, () => {
+//   console.log(`Fashion analysis API listening at http://localhost:${port}`);
+// });
+
+// Function to verify that the OpenAI chain is ready
+async function validateOpenAIChain() {
+  try {
+    // Test prompt for chain validation
+    const prompt = "Test input to verify OpenAI chain is working.";
+    const response = await llmChain.invoke({ input: prompt });
+    console.log(`OpenAI chain validation response: ${response}`);
+    return true;
+  } catch (error) {
+    console.error("OpenAI chain validation failed:", error);
+    return false;
+  }
+}
+
+// Initialize the server
+(async function initializeServer() {
+  // Validate the llmChain before starting the server
+  const chainReady = await validateOpenAIChain();
+  if (!chainReady) {
+    console.error("OpenAI chain initialization failed. Aborting server startup.");
+    return;
+  }
+
+  // Start the server
+  app.listen(port, () => {
+    console.log(`Fashion analysis API listening at http://localhost:${port}`);
+  });
+})();
