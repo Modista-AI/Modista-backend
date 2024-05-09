@@ -391,12 +391,12 @@ app.post('/recommend-clothing', async (req, res) => {
 
     // Create a concise description of the closet
     const closetDescription = userWithCloset.closet.map(item =>
-      `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures}.`
+      `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
     ).join(" ");
     console.log("Closet Description Prepared");
 
     // Adjust the prompt to focus on simplicity and brevity
-    const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format.`;
+    const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format and return the image url.`;
     console.log("Prompt Prepared");
 
     // Invoke OpenAI model with enhanced retry logic
