@@ -327,7 +327,20 @@ console.log("step1")
 
     // Invoke OpenAI model (adjust timeout settings if available)
     // const response = await llmChain.invoke({ input: prompt });
-    const response = await llmChain.invoke({ input: prompt, timeout: 5000 });
+    // const response = await llmChain.invoke({ input: prompt, timeout: 5000 });
+    // console.log(`respone: ${response}`)
+
+
+        // Invoke OpenAI model (adjust timeout settings if available)
+        let response;
+        try {
+          response = await llmChain.invoke({ input: prompt });
+          console.log(`response: ${response}`);
+        } catch (llmError) {
+          console.error("Error invoking llmChain:", llmError);
+          throw new Error("Error invoking OpenAI");
+        }
+        
     console.log("step6")
 
     // Send back the recommendation
