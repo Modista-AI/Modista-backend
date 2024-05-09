@@ -61,7 +61,7 @@ const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.m
 // }).then(() => console.log('MongoDB connected'))
 //   .catch(err => console.error('MongoDB connection error:', err));
 
-mongoose.connect(mongoURI, {
+await mongoose.connect(mongoURI, {
   serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
   socketTimeoutMS: 45000, // Maintain as is
 }).then(() => console.log('MongoDB connected'))
