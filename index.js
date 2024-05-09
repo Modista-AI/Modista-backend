@@ -53,14 +53,19 @@ const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.m
 //   .then(() => console.log("MongoDB connected"))
 //   .catch(err => console.error("MongoDB connection error:", err));
 
+// mongoose.connect(mongoURI, {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true,
+//   serverSelectionTimeoutMS: 10000, // Adjust the timeout duration as needed
+//   socketTimeoutMS: 45000, // Adjust socket timeout to fit your application's latency tolerance
+// }).then(() => console.log('MongoDB connected'))
+//   .catch(err => console.error('MongoDB connection error:', err));
+
 mongoose.connect(mongoURI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 10000, // Adjust the timeout duration as needed
-  socketTimeoutMS: 45000, // Adjust socket timeout to fit your application's latency tolerance
+  serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+  socketTimeoutMS: 45000, // Maintain as is
 }).then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
-
 
 // Clothing Schema (unchanged but might add a reference to User)
 const clothingSchema = new mongoose.Schema({
@@ -310,40 +315,77 @@ app.get('/user-closet', async (req, res) => {
 
 
 // Recommend what to wear based on the user's closet and their input description
+// app.post('/recommend-clothing', async (req, res) => {
+//   const { userEmail, description } = req.body;
+//   if (!userEmail || !description) {
+//       return res.status(400).send({ error: "Both userEmail and description are required" });
+//   }
+
+//   try {
+//       // Retrieve user and their closet
+//       console.log("hit")
+//       const userWithCloset = await User.findOne({ email: userEmail }).populate('closet');
+//       if (!userWithCloset) {
+//           return res.status(404).send({ error: "User not found" });
+//       }
+
+//       // Prepare the input for the AI based on the user's closet and the description provided
+//       let closetDescription = userWithCloset.closet.map(item => {
+//           return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`;
+//       }).join(" ");
+
+//       // const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
+//       const prompt = `Given a closet containing the following items:\n${closetDescription}\nBased on the user's description of their plans: "${description}", please recommend the most appropriate attire. List the recommended clothing items with brief descriptions and include their image URLs as retrieved from the database from the users closet of the specific cloths you recommend. Keep the response concise for display in a user interface. Let the response be in JSON format`;
+
+
+//       const response = await llmChain.invoke({
+//         input: prompt,
+//       });
+
+//       // Send back the recommendation
+//       res.send({ recommendation: response});
+//   } catch (error) {
+//       console.error("Error generating recommendation:", error);
+//       res.status(500).send({ error: "Error generating recommendation" });
+//   }
+// });
+
+// Recommend what to wear based on the user's closet and their input description
 app.post('/recommend-clothing', async (req, res) => {
   const { userEmail, description } = req.body;
   if (!userEmail || !description) {
-      return res.status(400).send({ error: "Both userEmail and description are required" });
+    return res.status(400).send({ error: "Both userEmail and description are required" });
   }
 
   try {
-      // Retrieve user and their closet
-      console.log("hit")
-      const userWithCloset = await User.findOne({ email: userEmail }).populate('closet');
-      if (!userWithCloset) {
-          return res.status(404).send({ error: "User not found" });
-      }
+    // Retrieve user and their closet (using lean() for optimized performance)
+    const userWithCloset = await User.findOne({ email: userEmail })
+      .populate({ path: 'closet', options: { limit: 10 } }) // Limit to 10 items
+      .lean();
 
-      // Prepare the input for the AI based on the user's closet and the description provided
-      let closetDescription = userWithCloset.closet.map(item => {
-          return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`;
-      }).join(" ");
+    if (!userWithCloset) {
+      return res.status(404).send({ error: "User not found" });
+    }
 
-      // const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
-      const prompt = `Given a closet containing the following items:\n${closetDescription}\nBased on the user's description of their plans: "${description}", please recommend the most appropriate attire. List the recommended clothing items with brief descriptions and include their image URLs as retrieved from the database from the users closet of the specific cloths you recommend. Keep the response concise for display in a user interface. Let the response be in JSON format`;
+    // Prepare a concise description of the closet
+    const closetDescription = userWithCloset.closet.map(item => 
+      `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
+    ).join(" ");
 
+    // Adjust the prompt to focus on simplicity and brevity
+    const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format, including relevant image URLs.`;
 
-      const response = await llmChain.invoke({
-        input: prompt,
-      });
+    // Invoke OpenAI model (adjust timeout settings if available)
+    const response = await llmChain.invoke({ input: prompt });
 
-      // Send back the recommendation
-      res.send({ recommendation: response});
+    // Send back the recommendation
+    res.send({ recommendation: response });
   } catch (error) {
-      console.error("Error generating recommendation:", error);
-      res.status(500).send({ error: "Error generating recommendation" });
+    console.error("Error generating recommendation:", error);
+    res.status(500).send({ error: "Error generating recommendation" });
   }
 });
+
 
 
 
