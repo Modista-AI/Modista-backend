@@ -49,17 +49,6 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const mongoURI = "mongodb+srv://agatenashons:yt4WXrBcQuel4ovj@cluster0.yz8zuwc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"; // Replace with your actual MongoDB URI
-// mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-//   .then(() => console.log("MongoDB connected"))
-//   .catch(err => console.error("MongoDB connection error:", err));
-
-// mongoose.connect(mongoURI, {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-//   serverSelectionTimeoutMS: 10000, // Adjust the timeout duration as needed
-//   socketTimeoutMS: 45000, // Adjust socket timeout to fit your application's latency tolerance
-// }).then(() => console.log('MongoDB connected'))
-//   .catch(err => console.error('MongoDB connection error:', err));
 
 await mongoose.connect(mongoURI, {
   serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
@@ -120,11 +109,6 @@ const mongoDBURI = process.env.MONGO_DB_URI;
 const loginURL = 'https://modista-backend.vercel.app/login'
 
 
-// app.use(cors({
-//   origin: 'http://localhost:3001',  // Allow only your Next.js origin; adjust as necessary
-//   methods: ['GET', 'POST', 'DELETE', 'UPDATE', 'PUT', 'PATCH']
-// }));
-
 const allowedOrigins = [
   'http://localhost:3001',
   'https://modista-app.vercel.app'
@@ -170,9 +154,6 @@ const llmChain = prompt.pipe(chatModel).pipe(outputParser);
 
 app.use(express.json());
 
-
-// Multer setup for handling file uploads
-// const upload = multer({ dest: 'uploads/' });
 // Configure multer to use the `/tmp` directory
 const upload = multer({
   storage: multer.diskStorage({
@@ -315,68 +296,39 @@ app.get('/user-closet', async (req, res) => {
 
 
 // Recommend what to wear based on the user's closet and their input description
-// app.post('/recommend-clothing', async (req, res) => {
-//   const { userEmail, description } = req.body;
-//   if (!userEmail || !description) {
-//       return res.status(400).send({ error: "Both userEmail and description are required" });
-//   }
-
-//   try {
-//       // Retrieve user and their closet
-//       console.log("hit")
-//       const userWithCloset = await User.findOne({ email: userEmail }).populate('closet');
-//       if (!userWithCloset) {
-//           return res.status(404).send({ error: "User not found" });
-//       }
-
-//       // Prepare the input for the AI based on the user's closet and the description provided
-//       let closetDescription = userWithCloset.closet.map(item => {
-//           return `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`;
-//       }).join(" ");
-
-//       // const prompt = `Given a closet containing: ${closetDescription}\nUser description: ${description}\nRecommend what to wear:`;
-//       const prompt = `Given a closet containing the following items:\n${closetDescription}\nBased on the user's description of their plans: "${description}", please recommend the most appropriate attire. List the recommended clothing items with brief descriptions and include their image URLs as retrieved from the database from the users closet of the specific cloths you recommend. Keep the response concise for display in a user interface. Let the response be in JSON format`;
-
-
-//       const response = await llmChain.invoke({
-//         input: prompt,
-//       });
-
-//       // Send back the recommendation
-//       res.send({ recommendation: response});
-//   } catch (error) {
-//       console.error("Error generating recommendation:", error);
-//       res.status(500).send({ error: "Error generating recommendation" });
-//   }
-// });
-
-// Recommend what to wear based on the user's closet and their input description
 app.post('/recommend-clothing', async (req, res) => {
   const { userEmail, description } = req.body;
   if (!userEmail || !description) {
     return res.status(400).send({ error: "Both userEmail and description are required" });
   }
-
+console.log("step1")
   try {
     // Retrieve user and their closet (using lean() for optimized performance)
     const userWithCloset = await User.findOne({ email: userEmail })
       .populate({ path: 'closet', options: { limit: 10 } }) // Limit to 10 items
       .lean();
 
+      console.log("step2")
+    
     if (!userWithCloset) {
       return res.status(404).send({ error: "User not found" });
     }
+    console.log("step3")
 
     // Prepare a concise description of the closet
     const closetDescription = userWithCloset.closet.map(item => 
       `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
     ).join(" ");
+    console.log("step4")
 
     // Adjust the prompt to focus on simplicity and brevity
     const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format, including relevant image URLs.`;
+    console.log("step5")
 
     // Invoke OpenAI model (adjust timeout settings if available)
-    const response = await llmChain.invoke({ input: prompt });
+    // const response = await llmChain.invoke({ input: prompt });
+    const response = await llmChain.invoke({ input: prompt, timeout: 5000 });
+    console.log("step6")
 
     // Send back the recommendation
     res.send({ recommendation: response });
