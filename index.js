@@ -351,15 +351,16 @@ app.get('/user-closet', async (req, res) => {
 //   }
 // });
 
-
-// Function to retry OpenAI calls
-const retryInvoke = async (llmChain, prompt, retries = 3, delay = 2000) => {
+// Improved Retry Function with Exponential Backoff
+const retryInvoke = async (llmChain, prompt, retries = 3, baseDelay = 1000) => {
   for (let i = 0; i < retries; i++) {
     try {
       return await llmChain.invoke({ input: prompt });
     } catch (llmError) {
-      console.error(`llmChain Error on attempt ${i + 1}:`, llmError);
+      console.error(`llmChain Error on attempt ${i + 1}:`, llmError.message);
       if (i < retries - 1) {
+        // Exponential backoff delay
+        const delay = baseDelay * 2 ** i;
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         throw llmError;
@@ -368,47 +369,45 @@ const retryInvoke = async (llmChain, prompt, retries = 3, delay = 2000) => {
   }
 };
 
+// Improved /recommend-clothing Endpoint
 app.post('/recommend-clothing', async (req, res) => {
   const { userEmail, description } = req.body;
   if (!userEmail || !description) {
     return res.status(400).send({ error: "Both userEmail and description are required" });
   }
 
-  console.log("step1");
+  console.log("Initiating Recommendation Process");
   try {
-    // Retrieve user and their closet (using lean() for optimized performance)
+    // Retrieve user and their closet (optimized with lean and limit)
     const userWithCloset = await User.findOne({ email: userEmail })
-      .populate({ path: 'closet', options: { limit: 10 } }) // Limit to 10 items
+      .populate({ path: 'closet', options: { limit: 5 } }) // Limit to 5 items
       .lean();
 
-    console.log("step2");
+    console.log("User Closet Retrieved");
 
     if (!userWithCloset) {
       return res.status(404).send({ error: "User not found" });
     }
-    console.log("step3");
 
-    // Prepare a concise description of the closet
+    // Create a concise description of the closet
     const closetDescription = userWithCloset.closet.map(item =>
-      `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
+      `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures}.`
     ).join(" ");
-    console.log("step4");
+    console.log("Closet Description Prepared");
 
     // Adjust the prompt to focus on simplicity and brevity
-    const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format, including relevant image URLs.`;
-    console.log("step5");
+    const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format.`;
+    console.log("Prompt Prepared");
 
-    // Invoke OpenAI model with retry logic
+    // Invoke OpenAI model with enhanced retry logic
     const response = await retryInvoke(llmChain, prompt);
-    console.log(`response: ${response}`);
-
-    console.log("step6");
+    console.log(`Response Received: ${response}`);
 
     // Send back the recommendation
     res.send({ recommendation: response });
   } catch (error) {
-    console.error("Error generating recommendation:", error);
-    res.status(500).send({ error: "Error generating recommendation" });
+    console.error("Error Generating Recommendation:", error.message);
+    res.status(500).send({ error: "Error generating recommendation. Please try again." });
   }
 });
 
