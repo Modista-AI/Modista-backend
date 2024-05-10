@@ -369,47 +369,6 @@ const retryInvoke = async (llmChain, prompt, retries = 3, baseDelay = 1000) => {
   }
 };
 
-// Improved /recommend-clothing Endpoint
-// app.post('/recommend-clothing', async (req, res) => {
-//   const { userEmail, description } = req.body;
-//   if (!userEmail || !description) {
-//     return res.status(400).send({ error: "Both userEmail and description are required" });
-//   }
-
-//   console.log("Initiating Recommendation Process");
-//   try {
-//     // Retrieve user and their closet (optimized with lean and limit)
-//     const userWithCloset = await User.findOne({ email: userEmail })
-//       .populate({ path: 'closet', options: { limit: 5 } }) // Limit to 5 items
-//       .lean();
-
-//     console.log("User Closet Retrieved");
-
-//     if (!userWithCloset) {
-//       return res.status(404).send({ error: "User not found" });
-//     }
-
-//     // Create a concise description of the closet
-//     const closetDescription = userWithCloset.closet.map(item =>
-//       `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
-//     ).join(" ");
-//     console.log("Closet Description Prepared");
-
-//     // Adjust the prompt to focus on simplicity and brevity
-//     const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format and return the image url.`;
-//     console.log("Prompt Prepared");
-
-//     // Invoke OpenAI model with enhanced retry logic
-//     const response = await retryInvoke(llmChain, prompt);
-//     console.log(`Response Received: ${response}`);
-
-//     // Send back the recommendation
-//     res.send({ recommendation: response });
-//   } catch (error) {
-//     console.error("Error Generating Recommendation:", error.message);
-//     res.status(500).send({ error: "Error generating recommendation. Please try again." });
-//   }
-// });
 
 app.post('/recommend-clothing', async (req, res) => {
   const { userEmail, description } = req.body;
