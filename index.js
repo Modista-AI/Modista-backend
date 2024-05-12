@@ -76,6 +76,15 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 const User = mongoose.model('User', userSchema);
 
+// Define a schema for the user
+const userTweetSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  tweets: [{ tweetText: String, hasArbitrum: Boolean }],
+  points: { type: Number, default: 0 }
+});
+
+const Usertweet = mongoose.model('Usertweet', userTweetSchema);
+
 const app = express();
 const port = 3000;
 
@@ -295,62 +304,6 @@ app.get('/user-closet', async (req, res) => {
 });
 
 
-// Recommend what to wear based on the user's closet and their input description
-// app.post('/recommend-clothing', async (req, res) => {
-//   const { userEmail, description } = req.body;
-//   if (!userEmail || !description) {
-//     return res.status(400).send({ error: "Both userEmail and description are required" });
-//   }
-// console.log("step1")
-//   try {
-//     // Retrieve user and their closet (using lean() for optimized performance)
-//     const userWithCloset = await User.findOne({ email: userEmail })
-//       .populate({ path: 'closet', options: { limit: 10 } }) // Limit to 10 items
-//       .lean();
-
-//       console.log("step2")
-    
-//     if (!userWithCloset) {
-//       return res.status(404).send({ error: "User not found" });
-//     }
-//     console.log("step3")
-
-//     // Prepare a concise description of the closet
-//     const closetDescription = userWithCloset.closet.map(item => 
-//       `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
-//     ).join(" ");
-//     console.log("step4")
-
-//     // Adjust the prompt to focus on simplicity and brevity
-//     const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Suggest the most suitable attire in JSON format, including relevant image URLs.`;
-//     console.log("step5")
-
-//     // Invoke OpenAI model (adjust timeout settings if available)
-//     // const response = await llmChain.invoke({ input: prompt });
-//     // const response = await llmChain.invoke({ input: prompt, timeout: 5000 });
-//     // console.log(`respone: ${response}`)
-
-
-//         // Invoke OpenAI model (adjust timeout settings if available)
-//         let response;
-//         try {
-//           response = await llmChain.invoke({ input: prompt });
-//           console.log(`response: ${response}`);
-//         } catch (llmError) {
-//           console.error("Error invoking llmChain:", llmError);
-//           throw new Error("Error invoking OpenAI");
-//         }
-
-//     console.log("step6")
-
-//     // Send back the recommendation
-//     res.send({ recommendation: response });
-//   } catch (error) {
-//     console.error("Error generating recommendation:", error);
-//     res.status(500).send({ error: "Error generating recommendation" });
-//   }
-// });
-
 // Improved Retry Function with Exponential Backoff
 const retryInvoke = async (llmChain, prompt, retries = 3, baseDelay = 1000) => {
   for (let i = 0; i < retries; i++) {
@@ -544,6 +497,64 @@ app.get('/clothing/:id', async (req, res) => {
   }
 });
 
+app.post('/verifyTweet', async (req, res) => {
+  const { tweetText, email } = req.body;
+
+  try {
+    const hasArbitrum = tweetText.includes('#modista');
+    const user = await Usertweet.findOne({ email });
+
+    if (user) {
+      // Check if this tweet has already been verified for points
+      const isTweetAlreadyVerified = user.tweets.some(tweet => tweet.tweetText === tweetText);
+
+      if (!isTweetAlreadyVerified) {
+        // Add tweet to the user's record and update points if it has #arbitrum
+        user.tweets.push({ tweetText, hasArbitrum });
+        if (hasArbitrum) {
+          user.points += 1;  // Increment points by 1 for each verified tweet with #arbitrum
+        }
+        await user.save();
+      }
+    } else {
+      // Create a new user record if not found
+      const newUser = new Usertweet({
+        email,
+        tweets: [{ tweetText, hasArbitrum }],
+        points: hasArbitrum ? 1 : 0
+      });
+      await newUser.save();
+    }
+
+    res.status(200).json({ message: "Tweet verified successfully!", points: user ? user.points : 1 });
+  } catch (error) {
+    console.error('Error verifying tweet:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Assuming your existing setup and imports from Express and Mongoose are already in place
+
+// GET endpoint to fetch user points
+app.get('/getUserPoints', async (req, res) => {
+  const { email } = req.query; // Get email from query parameters
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email parameter is required' });
+  }
+
+  try {
+    const user = await Usertweet.findOne({ email });
+    if (user) {
+      res.status(200).json({ points: user.points }); // Send back the user's points
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error retrieving user points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
 // app.listen(port, () => {
