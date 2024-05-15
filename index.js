@@ -323,6 +323,84 @@ const retryInvoke = async (llmChain, prompt, retries = 3, baseDelay = 1000) => {
 };
 
 
+// app.post('/recommend-clothing', async (req, res) => {
+//   const { userEmail, description } = req.body;
+
+//   // Validate that both userEmail and description are provided
+//   if (!userEmail || !description) {
+//     return res.status(400).json({
+//       status: 'error',
+//       message: 'Both userEmail and description are required',
+//       data: null,
+//     });
+//   }
+
+//   console.log("Initiating Recommendation Process");
+
+//   try {
+//     // Retrieve user and their closet (optimized with lean and limit)
+//     const userWithCloset = await User.findOne({ email: userEmail })
+//       .populate({ path: 'closet', options: { limit: 5 } }) // Limit to 5 items
+//       .lean();
+
+//     console.log("User Closet Retrieved");
+
+//     // Handle case where the user is not found
+//     if (!userWithCloset) {
+//       return res.status(404).json({
+//         status: 'error',
+//         message: 'User not found',
+//         data: null,
+//       });
+//     }
+
+//     // Create a concise description of the closet
+//     const closetDescription = userWithCloset.closet.map(item =>
+//       `${item.style} ${item.color} ${item.material} ${item.occasions} ${item.uniqueFeatures} ${item.imageUrl}.`
+//     ).join(" ");
+//     console.log("Closet Description Prepared");
+
+//     // Prepare a prompt with instructions for consistent field naming
+//     const prompt = `A closet contains:\n${closetDescription}\nThe user plans to: "${description}". Provide the most suitable outfit recommendation in JSON format with this structure:
+//     {
+//       "Outfit": {
+//         "Top": {
+//           "Item": "Name of the top",
+//           "Description": "Detailed description of the top",
+//           "ImageURL": "URL of the image showing the top"
+//         },
+//         "Bottom": {
+//           "Item": "Name of the bottom",
+//           "Description": "Detailed description of the bottom",
+//           "ImageURL": "URL of the image showing the bottom"
+//         }
+//       }
+//     }. Follow this exact naming and structure for each section, filling in appropriate data.`;
+//     console.log("Prompt Prepared");
+
+//     // Invoke the LLM model using retry logic
+//     const response = await retryInvoke(llmChain, prompt);
+//     console.log(`Response Received: ${response}`);
+
+//     // Structure the success response
+//     return res.json({
+//       status: 'success',
+//       message: 'Recommendation generated successfully',
+//       data: { recommendation: JSON.parse(response) },
+//     });
+//   } catch (error) {
+//     console.error("Error Generating Recommendation:", error.message);
+
+//     // Structure error response
+//     return res.status(500).json({
+//       status: 'error',
+//       message: 'Error generating recommendation. Please try again.',
+//       data: null,
+//     });
+//   }
+// });
+
+
 app.post('/recommend-clothing', async (req, res) => {
   const { userEmail, description } = req.body;
 
@@ -382,11 +460,17 @@ app.post('/recommend-clothing', async (req, res) => {
     const response = await retryInvoke(llmChain, prompt);
     console.log(`Response Received: ${response}`);
 
+    // Remove code fences if present
+    const sanitizedResponse = response.replace(/```json|```/g, '');
+
+    // Parse the sanitized JSON response
+    const recommendation = JSON.parse(sanitizedResponse);
+
     // Structure the success response
     return res.json({
       status: 'success',
       message: 'Recommendation generated successfully',
-      data: { recommendation: JSON.parse(response) },
+      data: { recommendation },
     });
   } catch (error) {
     console.error("Error Generating Recommendation:", error.message);
@@ -399,6 +483,7 @@ app.post('/recommend-clothing', async (req, res) => {
     });
   }
 });
+
 
 
 
